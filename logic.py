@@ -115,7 +115,71 @@ class DatabaseManager:
             rows = cur.fetchall()
         return rows
 
+class DatabaseManager:
+    def get_winners_img(self, user_id):
+        conn = sqlite3.connect(self.database)
+        with conn:
+            cur = conn.cursor()
+            cur.execute(''' 
+    SELECT image FROM winners 
+    INNER JOIN prizes ON 
+    winners.prize_id = prizes.prize_id
+    WHERE user_id = ?''', (user_id, ))
+            return cur.fetchall()
+@bot.message_handler(commands=['rating'])
+def handle_rating(message):
+    winners = manager.get_winners()
+    
+    if not winners:
+        bot.send_message(message.chat.id, "📊 Таблица рейтинга пуста. Победителей пока нет!")
+        return
+    
+    # Формируем таблицу
+    rating_text = "📊 <b>Таблица рейтинга</b>\n\n"
+    rating_text += "<code>" + f"{'№':<3} {'Пользователь':<20} {'Приз ID':<10} {'Время':<19}\n" + "-" * 52 + "</code>\n"
+    
+    for idx, (username, prize_id, win_time) in enumerate(winners, 1):
+        username = username or "Unknown"
+        rating_text += f"<code>{idx:<3} {username:<20} {prize_id:<10} {win_time:<19}</code>\n"
+    
+    bot.send_message(message.chat.id, rating_text, parse_mode="HTML")
 
+def create_collage(image_paths):
+    images = []
+    for path in image_paths:
+        image = cv2.imread(path)
+        images.append(image)
+
+    num_images = len(images)
+    num_cols = floor(sqrt(num_images)) # Поиск количество картинок по горизонтали
+    num_rows = ceil(num_images/num_cols)  # Поиск количество картинок по вертикали
+    # Создание пустого коллажа
+    collage = np.zeros((num_rows * images[0].shape[0], num_cols * images[0].shape[1], 3), dtype=np.uint8)
+    # Размещение изображений на коллаже
+    for i, image in enumerate(images):
+        row = i // num_cols
+        col = i % num_cols
+        collage[row*image.shape[0]:(row+1)*image.shape[0], col*image.shape[1]:(col+1)*image.shape[1], :] = image
+    return collage
+
+
+m = DatabaseManager(DATABASE)
+info = m.get_winners_img("user_id")
+prizes = [x[0] for x in info]
+image_paths = os.listdir('img')
+image_paths = [f'img/{x}' if x in prizes else f'hidden_img/{x}' for x in image_paths]
+collage = create_collage(image_paths)
+
+def get_winners_img(self, user_id):
+    conn = sqlite3.connect(self.database)
+    with conn:
+        cur = conn.cursor()
+        cur.execute(''' 
+SELECT image FROM winners 
+INNER JOIN prizes ON 
+winners.prize_id = prizes.prize_id
+WHERE user_id = ?''', (user_id, ))
+        return cur.fetchall()
 def hide_img(img_name):
     image = cv2.imread(f'img/{img_name}')
     blurred_image = cv2.GaussianBlur(image, (15, 15), 0)
