@@ -4,9 +4,14 @@ from logic import *
 import schedule
 import threading
 import time
+import os
+import cv2
+import numpy as np
+from math import ceil, sqrt
 from config import *
 
 bot = TeleBot(API_TOKEN)
+manager = None
 
 def gen_markup(id):
     markup = InlineKeyboardMarkup()
@@ -64,27 +69,23 @@ def handle_start(message):
 Для этого нужно быстрее всех нажать на кнопку 'Получить!'
 
 Только три первых пользователя получат картинку!)""")
-
-
-@bot.message_handler(commands=['rating'])
-def handle_rating(message):
-    winners = manager.get_winners()
-    
-    if not winners:
-        bot.send_message(message.chat.id, "📊 Таблица рейтинга пуста. Победителей пока нет!")
-        return
-    
-    # Формируем таблицу
-    rating_text = "📊 <b>Таблица рейтинга</b>\n\n"
-    rating_text += "<code>" + f"{'№':<3} {'Пользователь':<20} {'Приз ID':<10} {'Время':<19}\n" + "-" * 52 + "</code>\n"
-    
-    for idx, (username, prize_id, win_time) in enumerate(winners, 1):
-        username = username or "Unknown"
-        rating_text += f"<code>{idx:<3} {username:<20} {prize_id:<10} {win_time:<19}</code>\n"
-    
-    bot.send_message(message.chat.id, rating_text, parse_mode="HTML")
         
-
+@bot.message_handler(commands=['myscore'])
+def get_my_score(message):
+    user_id = message.from_user.id # Получаем ID пользователя из сообщения
+    
+    try:
+        # Предполагаем, что get_user_score возвращает очки пользователя или None/0 при отсутствии
+        score = db_manager.get_user_score(user_id)
+        
+        if score is not None and score >= 0: # Проверяем, что очки получены и они корректны
+            bot.send_message(message.chat.id, f"Твои текущие очки: {score}")
+        else:
+            bot.send_message(message.chat.id, "У тебя пока нет очков. Начни играть, чтобы их получить!")
+            
+    except Exception as e:
+        print(f"Ошибка в get_my_score: {e}")
+        bot.send_message(message.chat.id, "Произошла ошибка при получении твоих очков.")
 
 def polling_thread():
     bot.polling(none_stop=True)
